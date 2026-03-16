@@ -13,9 +13,8 @@ def load_data():
     # Creamos la conexión a GSheets
     conn = st.connection("gsheets", type=GSheetsConnection)
     
-    # URL pública del Google Sheet (esta es una plantilla de ejemplo que el usuario deberá cambiar por la suya)
-    # Ejemplo de estructura de URL: "https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit"
-    sheet_url = "https://docs.google.com/spreadsheets/d/1yN-Yf60Qh1ZqCszk9_T9V0sI9mZ7xYyX-oA830T7zLQ/edit?usp=sharing"
+    # URL pública del Google Sheet del usuario
+    sheet_url = "https://docs.google.com/spreadsheets/d/1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20/edit?usp=sharing"
     
     try:
         # Cargar todas las hojas
@@ -119,12 +118,14 @@ with tab_finanzas:
             color_discrete_sequence=['#ff7f0e'],
             template='plotly_white'
         )
+        # Adaptar eje Y para menor cantidad de clientes en clínica de lujo
+        fig_clientes.update_layout(yaxis=dict(range=[0, max(df_finanzas['Clientes Mensuales'])+10]))
         st.plotly_chart(fig_clientes, use_container_width=True)
         
     st.markdown("---")
     
     # 3. Procedimientos Más Pedidos
-    st.subheader("Top Procedimientos Solicitados")
+    st.subheader("Top Procedimientos Exclusivos Solicitados")
     col_proc_chart, col_proc_table = st.columns([2, 1])
     
     with col_proc_chart:
@@ -138,8 +139,9 @@ with tab_finanzas:
         st.plotly_chart(fig_procedimientos, use_container_width=True)
         
     with col_proc_table:
+        # Formatear la tabla para mostrar el Precio Promedio ($)
         st.dataframe(
-            df_procedimientos, 
+            df_procedimientos.style.format({'Precio Promedio ($)': '${:,.2f}'}), 
             hide_index=True, 
             use_container_width=True,
             height=300
