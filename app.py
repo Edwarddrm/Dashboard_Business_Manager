@@ -1,206 +1,180 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-from streamlit_gsheets import GSheetsConnection
-import os
 
 # --- Configuración de página ---
-st.set_page_config(page_title="Dashboard Empresarial", page_icon="📈", layout="wide")
+st.set_page_config(page_title="Clínica Premium Dashboard", page_icon="💎", layout="wide")
 
-# --- Funciones de Carga de Datos ---
-@st.cache_data(ttl=600) # Cache connection for 10 minutes
+# --- ID del Google Sheet ---
+SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
+
+def sheet_url(sheet_name):
+    """Genera la URL de exportación CSV para cada hoja por nombre."""
+    return f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+
+@st.cache_data(ttl=300)  # Actualiza cada 5 minutos
 def load_data():
-    # Creamos la conexión a GSheets
-    conn = st.connection("gsheets", type=GSheetsConnection)
-    
-    # URL pública del Google Sheet del usuario
-    sheet_url = "https://docs.google.com/spreadsheets/d/1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20/edit?usp=sharing"
-    
     try:
-        # Cargar todas las hojas
-        df_finanzas = conn.read(spreadsheet=sheet_url, worksheet='Finanzas')
-        df_procedimientos = conn.read(spreadsheet=sheet_url, worksheet='Procedimientos')
-        df_marketing = conn.read(spreadsheet=sheet_url, worksheet='Marketing_General')
-        df_campanas = conn.read(spreadsheet=sheet_url, worksheet='Campanas')
-        df_tareas = conn.read(spreadsheet=sheet_url, worksheet='Tareas')
-        
+        df_finanzas       = pd.read_csv(sheet_url("Finanzas"))
+        df_procedimientos = pd.read_csv(sheet_url("Procedimientos"))
+        df_marketing      = pd.read_csv(sheet_url("Marketing_General"))
+        df_campanas       = pd.read_csv(sheet_url("Campanas"))
+        df_tareas         = pd.read_csv(sheet_url("Tareas"))
         return df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas
-        
     except Exception as e:
-        st.error("Error conectando con Google Sheets. Por favor, asegúrate de que el enlace sea correcto y el archivo sea público.")
-        st.error(f"Detalle del error: {e}")
+        st.error(f"❌ Error cargando datos: {e}")
         st.stop()
 
-# Cargar los datos desde Google Sheets
 df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas = load_data()
 
-# --- Título y Estilos ---
-st.title("📊 Panel de Control Empresarial")
-st.markdown("Bienvenido a tu dashboard interactivo. Navega entre las pestañas para ver las diferentes métricas.")
-
-# Estilos CSS personalizados para las métricas
+# --- Estilos CSS personalizados ---
 st.markdown("""
 <style>
 div[data-testid="metric-container"] {
-    background-color: #f0f2f6;
-    border: 1px solid #e0e0e0;
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
     padding: 5% 5% 5% 10%;
-    border-radius: 10px;
+    border-radius: 12px;
     color: #31333F;
     overflow-wrap: break-word;
 }
-/* Estilo modo oscuro (ajusta automáticamente) */
-@media (prefers-color-scheme: dark) {
-    div[data-testid="metric-container"] {
-        background-color: #262730;
-        border: 1px solid #4d4d4d;
-        color: white;
-    }
+.stTabs [data-baseweb="tab-list"] {
+    gap: 8px;
+}
+.stTabs [data-baseweb="tab"] {
+    font-size: 16px;
+    font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Definición de Pestañas ---
+# --- Título ---
+st.title("💎 Dashboard Clínica Premium")
+st.markdown("*Panel de control en tiempo real — datos actualizados desde Google Sheets*")
+st.markdown("---")
+
+# --- Tabs ---
 tab_finanzas, tab_marketing = st.tabs(["💰 Finanzas y Operaciones", "🚀 Marketing y Gestión"])
 
 # ==============================================================================
 # PESTAÑA 1: FINANZAS Y OPERACIONES
 # ==============================================================================
 with tab_finanzas:
-    st.header("Resumen Financiero y Clientes")
-    
-    # Para el ejemplo, tomaremos el 'mes actual' como el último en el dataframe para mostrar KPIs puntuales
-    # En un caso real, esto vendría filtrado o seleccionado por el usuario.
-    # Asumamos que el mes actual de interés es 'Marzo' (índice 2)
-    current_month_data = df_finanzas.iloc[2]
-    
-    # 1. KPIs Principales
-    st.subheader("Métricas de Clientes (Mes Actual: Marzo)")
-    kpi1, kpi2, kpi3 = st.columns(3)
-    kpi1.metric(
-        label="Clientes Diarios Promedio", 
-        value=f"{current_month_data['Promedio Clientes Diarios']:.1f}"
-    )
-    kpi2.metric(
-        label="Clientes Semanales Promedio", 
-        value=f"{current_month_data['Promedio Clientes Semanales']:.1f}"
-    )
-    kpi3.metric(
-        label="Clientes Mensuales Totales", 
-        value=f"{int(current_month_data['Clientes Mensuales'])}"
-    )
-    
+    st.header("📊 Resumen Financiero")
+
+    # Asegurar tipos correctos
+    df_finanzas['Ventas ($)'] = pd.to_numeric(df_finanzas['Ventas ($)'], errors='coerce')
+    df_finanzas['Clientes Mensuales'] = pd.to_numeric(df_finanzas['Clientes Mensuales'], errors='coerce')
+
+    # Selección de mes actual (usamos Marzo como referencia)
+    meses = df_finanzas['Mes'].tolist()
+    mes_sel = st.selectbox("Selecciona el mes a detallar:", meses, index=2)
+    current = df_finanzas[df_finanzas['Mes'] == mes_sel].iloc[0]
+
+    # KPIs
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1.metric("💵 Ventas del Mes", f"${int(current['Ventas ($)']):,}")
+    kpi2.metric("👥 Clientes Mensuales", int(current['Clientes Mensuales']))
+    kpi3.metric("📅 Prom. Clientes / Semana", f"{current['Promedio Clientes Semanales']:.1f}")
+    kpi4.metric("📆 Prom. Clientes / Día", f"{current['Promedio Clientes Diarios']:.1f}")
+
     st.markdown("---")
-    
-    # 2. Gráficos de Ventas y Clientes Mensuales lado a lado
+
     col1, col2 = st.columns(2)
-    
     with col1:
-        st.subheader("Evolución de Ventas Mensuales")
-        fig_ventas = px.bar(
-            df_finanzas, 
-            x='Mes', 
-            y='Ventas ($)',
+        st.subheader("📈 Ventas Mensuales")
+        fig_v = px.bar(
+            df_finanzas, x='Mes', y='Ventas ($)',
             text='Ventas ($)',
-            color_discrete_sequence=['#1f77b4'],
+            color_discrete_sequence=['#6C63FF'],
             template='plotly_white'
         )
-        fig_ventas.update_traces(texttemplate='$%{text:.2s}', textposition='outside')
-        st.plotly_chart(fig_ventas, use_container_width=True)
-        
+        fig_v.update_traces(texttemplate='$%{text:,.0f}', textposition='outside')
+        fig_v.update_layout(yaxis_title="Ventas ($)", xaxis_title="")
+        st.plotly_chart(fig_v, use_container_width=True)
+
     with col2:
-        st.subheader("Evolución de Clientes Mensuales")
-        fig_clientes = px.line(
-            df_finanzas, 
-            x='Mes', 
-            y='Clientes Mensuales',
+        st.subheader("👤 Evolución de Clientes")
+        fig_c = px.line(
+            df_finanzas, x='Mes', y='Clientes Mensuales',
             markers=True,
-            color_discrete_sequence=['#ff7f0e'],
+            color_discrete_sequence=['#FF6584'],
             template='plotly_white'
         )
-        # Adaptar eje Y para menor cantidad de clientes en clínica de lujo
-        fig_clientes.update_layout(yaxis=dict(range=[0, max(df_finanzas['Clientes Mensuales'])+10]))
-        st.plotly_chart(fig_clientes, use_container_width=True)
-        
+        st.plotly_chart(fig_c, use_container_width=True)
+
     st.markdown("---")
-    
-    # 3. Procedimientos Más Pedidos
-    st.subheader("Top Procedimientos Exclusivos Solicitados")
-    col_proc_chart, col_proc_table = st.columns([2, 1])
-    
-    with col_proc_chart:
-        fig_procedimientos = px.pie(
-            df_procedimientos.head(5), # Top 5
-            names='Procedimiento', 
-            values='Cantidad Solicitadas',
-            hole=0.4,
-            template='plotly_white'
+    st.subheader("🏆 Procedimientos Más Solicitados")
+
+    df_procedimientos['Cantidad Solicitadas'] = pd.to_numeric(df_procedimientos['Cantidad Solicitadas'], errors='coerce')
+    if 'Precio Promedio ($)' in df_procedimientos.columns:
+        df_procedimientos['Precio Promedio ($)'] = pd.to_numeric(df_procedimientos['Precio Promedio ($)'], errors='coerce')
+
+    col_pie, col_tbl = st.columns([2, 1])
+    with col_pie:
+        fig_p = px.pie(
+            df_procedimientos.head(5),
+            names='Procedimiento', values='Cantidad Solicitadas',
+            hole=0.4, template='plotly_white'
         )
-        st.plotly_chart(fig_procedimientos, use_container_width=True)
-        
-    with col_proc_table:
-        # Formatear la tabla para mostrar el Precio Promedio ($)
-        st.dataframe(
-            df_procedimientos.style.format({'Precio Promedio ($)': '${:,.2f}'}), 
-            hide_index=True, 
-            use_container_width=True,
-            height=300
-        )
+        st.plotly_chart(fig_p, use_container_width=True)
+    with col_tbl:
+        st.dataframe(df_procedimientos, hide_index=True, use_container_width=True, height=350)
 
 
 # ==============================================================================
 # PESTAÑA 2: MARKETING Y GESTIÓN
 # ==============================================================================
 with tab_marketing:
-    st.header("Métricas de Marketing y Tareas")
-    
-    # 1. KPIs de Redes Sociales y Correos
-    st.subheader("Alcance e Interacción")
-    col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
-    
-    # Extrayendo valores específicos del dataframe de marketing general
-    seguidores_ig = df_marketing.loc[df_marketing['Métrica'] == 'Seguidores Instagram', 'Valor'].values[0]
-    seguidores_fb = df_marketing.loc[df_marketing['Métrica'] == 'Seguidores Facebook', 'Valor'].values[0]
-    correos_enviados = df_marketing.loc[df_marketing['Métrica'] == 'Correos Enviados (Mes)', 'Valor'].values[0]
-    tasa_apertura = df_marketing.loc[df_marketing['Métrica'] == 'Tasa de Apertura Correos (%)', 'Valor'].values[0]
-    
-    col_kpi1.metric(label="Seguidores Instagram 📸", value=f"{int(seguidores_ig):,}")
-    col_kpi2.metric(label="Correos Enviados ✉️", value=f"{int(correos_enviados):,}")
-    col_kpi3.metric(label="Tasa de Apertura Correos 📈", value=f"{tasa_apertura:.1f}%")
-    
+    st.header("📣 Marketing y Gestión")
+
+    # KPIs Marketing
+    df_marketing['Valor'] = pd.to_numeric(df_marketing['Valor'], errors='coerce')
+    metricas = df_marketing.set_index('Métrica')['Valor'].to_dict()
+
+    col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+    keys = list(metricas.keys())
+    cols = [col_m1, col_m2, col_m3, col_m4]
+    icons = ["📸", "👑", "✉️", "📈"]
+    for i, (k, col) in enumerate(zip(keys, cols)):
+        val = metricas[k]
+        icon = icons[i] if i < len(icons) else "📊"
+        col.metric(f"{icon} {k}", f"{val:,.1f}" if isinstance(val, float) else f"{int(val):,}")
+
     st.markdown("---")
-    
-    # 2. Campañas Vigentes
-    st.subheader("Campañas de Marketing Activas")
-    
-    # Definir colores para los estados
-    def color_status(val):
-        color = 'green' if val == 'Activa' else 'orange' if val == 'En Progreso' else 'red'
-        return f'color: {color}'
-        
-    st.dataframe(
-        df_campanas.style.applymap(color_status, subset=['Estado']),
-        hide_index=True,
-        use_container_width=True
-    )
-    
-    st.markdown("---")
-    
-    # 3. Lista de Tareas (To-Do List)
-    st.subheader("Lista de Tareas Pendientes (To-Do List) ✅")
-    
-    col_tareas1, col_tareas2 = st.columns([2, 1])
-    
-    with col_tareas1:
+
+    col_camp, col_todo = st.columns(2)
+
+    with col_camp:
+        st.subheader("🎯 Campañas Activas")
+        df_campanas['Inversión ($)'] = pd.to_numeric(df_campanas['Inversión ($)'], errors='coerce')
+        df_campanas['Clics/Interacciones'] = pd.to_numeric(df_campanas['Clics/Interacciones'], errors='coerce')
+
+        def color_estado(val):
+            if val == 'Activa':
+                return 'color: green; font-weight: bold'
+            elif val == 'En Preparación':
+                return 'color: orange; font-weight: bold'
+            return 'color: red'
         st.dataframe(
-            df_tareas,
-            hide_index=True,
-            use_container_width=True
+            df_campanas.style.map(color_estado, subset=['Estado']),
+            hide_index=True, use_container_width=True
         )
-        
-    with col_tareas2:
-        st.info("💡 **Tip de Productividad:** Puedes actualizar estas tareas directamente editando la pestaña 'Tareas' en tu archivo Excel. El dashboard reflejará los cambios automáticamente cuando refresques la página.")
-        
-        tareas_completadas = len(df_tareas[df_tareas['Estado'] == 'Completada'])
-        total_tareas = len(df_tareas)
-        st.progress(tareas_completadas / total_tareas, text=f"Progreso de Tareas ({tareas_completadas}/{total_tareas})")
+
+    with col_todo:
+        st.subheader("✅ Lista de Tareas")
+
+        def color_tarea(val):
+            if val == 'Completada':
+                return 'color: green'
+            elif val == 'En Progreso':
+                return 'color: orange'
+            return 'color: red'
+
+        st.dataframe(
+            df_tareas.style.map(color_tarea, subset=['Estado']),
+            hide_index=True, use_container_width=True
+        )
+        completadas = len(df_tareas[df_tareas['Estado'] == 'Completada'])
+        total = len(df_tareas)
+        st.progress(completadas / total, text=f"Progreso global: {completadas}/{total} tareas completadas")
