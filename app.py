@@ -227,34 +227,40 @@ with tab_personal:
             'Operaciones':         '#9E9E9E',
         }
 
-        # Construir el grafo en notación DOT de forma dinámica desde el dataframe
+        # Construir el grafo en notación DOT usando índices numéricos como IDs
+        # Esto evita problemas con tildes, puntos y espacios en los nombres.
         dot_lines = [
             'digraph orgchart {',
-            '  graph [rankdir=TB, bgcolor="#FAFAFA", ranksep=0.9, nodesep=0.6];',
+            '  graph [rankdir=TB, bgcolor="#FAFAFA", ranksep=1.0, nodesep=0.7];',
             '  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, '
-            '        margin="0.25,0.15", penwidth=1.5];',
+            '        margin="0.3,0.2", penwidth=1.5];',
             '  edge [color="#AAAAAA", penwidth=1.5, arrowsize=0.7];',
         ]
 
-        # Añadir nodos
-        for _, row in df_personal.iterrows():
-            nombre = row['Nombre'].replace('"', "'")
-            cargo  = row['Cargo'].replace('"', "'")
-            area   = row['Área']
+        # Crear lookup nombre (tal como está en la hoja) -> índice numérico
+        nombre_to_id = {
+            str(r['Nombre']).strip(): idx
+            for idx, r in df_personal.iterrows()
+        }
+
+        # Añadir nodos usando n{idx} como ID interno seguro
+        for idx, row in df_personal.iterrows():
+            nombre = str(row['Nombre']).strip().replace('"', "'")
+            cargo  = str(row['Cargo']).strip().replace('"', "'")
+            area   = str(row['Área']).strip()
             color  = colores_area.get(area, '#CCCCCC')
             label  = f"{nombre}\\n{cargo}"
-            node_id = nombre.replace(' ', '_').replace('.', '')
             dot_lines.append(
-                f'  {node_id} [label="{label}", fillcolor="{color}", fontcolor="white", color="{color}"];'
+                f'  n{idx} [label="{label}", fillcolor="{color}", fontcolor="white", color="{color}"];'
             )
 
-        # Añadir aristas (relaciones jerárquicas)
-        for _, row in df_personal.iterrows():
+        # Añadir aristas usando los índices numéricos (robustos a cualquier nombre)
+        for idx, row in df_personal.iterrows():
             jefe = str(row['Reporta a']).strip()
-            if jefe and jefe != 'nan':
-                id_jefe = jefe.replace(' ', '_').replace('.', '')
-                id_hijo = row['Nombre'].replace(' ', '_').replace('.', '')
-                dot_lines.append(f'  {id_jefe} -> {id_hijo};')
+            if jefe and jefe.lower() not in ('nan', ''):
+                id_jefe = nombre_to_id.get(jefe)
+                if id_jefe is not None:
+                    dot_lines.append(f'  n{id_jefe} -> n{idx};')
 
         dot_lines.append('}')
         dot_source = '\n'.join(dot_lines)
