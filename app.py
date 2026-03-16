@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 
 # --- Configuración de página ---
 st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layout="wide")
@@ -201,10 +200,10 @@ with tab_personal:
     st.header("👥 Equipo y Organigrama")
 
     # --- KPIs del equipo ---
-    num_dueños       = len(df_personal[df_personal['Área'] == 'Dirección'])
-    num_dentistas    = len(df_personal[df_personal['Área'] == 'Médica'])
-    num_admin        = len(df_personal[df_personal['Área'] == 'Administración'])
-    num_recep        = len(df_personal[df_personal['Cargo'].str.contains('Recepcion', case=False, na=False)])
+    num_dueños    = len(df_personal[df_personal['Área'] == 'Dirección'])
+    num_dentistas = len(df_personal[df_personal['Área'] == 'Médica'])
+    num_admin     = len(df_personal[df_personal['Área'] == 'Administración'])
+    num_recep     = len(df_personal[df_personal['Cargo'].str.contains('Recepcion', case=False, na=False)])
 
     k1, k2, k3, k4 = st.columns(4)
     k1.metric("👑 Dueñas / Directoras", num_dueños)
@@ -219,92 +218,57 @@ with tab_personal:
     with col_org:
         st.subheader("🏛️ Organigrama de la Clínica")
 
-        # Construir organigrama con plotly usando posiciones manuales para un layout claro
-        # Posiciones (x, y) definidas para cada nodo
-        nodos = {
-            'Dra. Valeria Montes':    (1.5, 4),
-            'Dra. Carolina Sánchez':  (4.5, 4),
-            'Dr. Alejandro Rivas':    (0.5, 2.5),
-            'Dr. Diego Fuentes':      (2, 2.5),
-            'Lic. Mariana Torres':    (4, 2.5),
-            'Ana Gómez':              (5.5, 2.5),
-            'Sofía Pérez':            (0.5, 1),
-            'Carlos Mendoza':         (4, 1),
-        }
-
+        # Colores por área para el organigrama Graphviz
         colores_area = {
-            'Dirección':        '#6C63FF',
-            'Médica':           '#4CAF50',
-            'Administración':   '#2196F3',
+            'Dirección':           '#6C63FF',
+            'Médica':              '#4CAF50',
+            'Administración':      '#2196F3',
             'Atención al Cliente': '#FF9800',
-            'Operaciones':      '#9E9E9E',
+            'Operaciones':         '#9E9E9E',
         }
 
-        df_p = df_personal.copy()
+        # Construir el grafo en notación DOT de forma dinámica desde el dataframe
+        dot_lines = [
+            'digraph orgchart {',
+            '  graph [rankdir=TB, bgcolor="#FAFAFA", ranksep=0.9, nodesep=0.6];',
+            '  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=11, '
+            '        margin="0.25,0.15", penwidth=1.5];',
+            '  edge [color="#AAAAAA", penwidth=1.5, arrowsize=0.7];',
+        ]
 
-        # Nodos
-        node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
-        for _, row in df_p.iterrows():
-            nombre = row['Nombre']
-            if nombre in nodos:
-                x, y = nodos[nombre]
-                node_x.append(x)
-                node_y.append(y)
-                node_text.append(f"<b>{nombre}</b><br><i>{row['Cargo']}</i>")
-                node_color.append(colores_area.get(row['Área'], '#999'))
-                node_hover.append(f"<b>{nombre}</b><br>{row['Cargo']}<br>📌 {row['Función Principal']}")
+        # Añadir nodos
+        for _, row in df_personal.iterrows():
+            nombre = row['Nombre'].replace('"', "'")
+            cargo  = row['Cargo'].replace('"', "'")
+            area   = row['Área']
+            color  = colores_area.get(area, '#CCCCCC')
+            label  = f"{nombre}\\n{cargo}"
+            node_id = nombre.replace(' ', '_').replace('.', '')
+            dot_lines.append(
+                f'  {node_id} [label="{label}", fillcolor="{color}", fontcolor="white", color="{color}"];'
+            )
 
-        # Aristas (relaciones jerárquicas)
-        edge_x, edge_y = [], []
-        for _, row in df_p.iterrows():
+        # Añadir aristas (relaciones jerárquicas)
+        for _, row in df_personal.iterrows():
             jefe = str(row['Reporta a']).strip()
-            if jefe and jefe in nodos and row['Nombre'] in nodos:
-                x0, y0 = nodos[jefe]
-                x1, y1 = nodos[row['Nombre']]
-                edge_x += [x0, x1, None]
-                edge_y += [y0, y1, None]
+            if jefe and jefe != 'nan':
+                id_jefe = jefe.replace(' ', '_').replace('.', '')
+                id_hijo = row['Nombre'].replace(' ', '_').replace('.', '')
+                dot_lines.append(f'  {id_jefe} -> {id_hijo};')
 
-        fig_org = go.Figure()
+        dot_lines.append('}')
+        dot_source = '\n'.join(dot_lines)
 
-        # Líneas de jerarquía
-        fig_org.add_trace(go.Scatter(
-            x=edge_x, y=edge_y,
-            mode='lines',
-            line=dict(color='#cccccc', width=2),
-            hoverinfo='none'
-        ))
+        st.graphviz_chart(dot_source, use_container_width=True)
 
-        # Nodos
-        fig_org.add_trace(go.Scatter(
-            x=node_x, y=node_y,
-            mode='markers+text',
-            marker=dict(size=40, color=node_color, line=dict(color='white', width=2)),
-            text=node_text,
-            textposition='bottom center',
-            hovertext=node_hover,
-            hoverinfo='text',
-            textfont=dict(size=10)
-        ))
-
-        fig_org.update_layout(
-            height=520,
-            showlegend=False,
-            xaxis=dict(visible=False, range=[-0.5, 7]),
-            yaxis=dict(visible=False, range=[0, 5]),
-            margin=dict(l=10, r=10, t=20, b=10),
-            paper_bgcolor='white',
-            plot_bgcolor='white',
-        )
-
-        # Leyenda manual de colores por área
-        for area, color in colores_area.items():
-            fig_org.add_trace(go.Scatter(
-                x=[None], y=[None], mode='markers',
-                marker=dict(size=12, color=color),
-                name=area, showlegend=True
-            ))
-
-        st.plotly_chart(fig_org, use_container_width=True)
+        # Leyenda de colores por área
+        st.markdown("**Leyenda de áreas:**")
+        leyenda_cols = st.columns(len(colores_area))
+        for i, (area, color) in enumerate(colores_area.items()):
+            leyenda_cols[i].markdown(
+                f'<span style="background:{color};color:white;padding:3px 10px;border-radius:8px;font-size:12px">{area}</span>',
+                unsafe_allow_html=True
+            )
 
     with col_tabla:
         st.subheader("📋 Detalle del Equipo")
@@ -314,3 +278,5 @@ with tab_personal:
             use_container_width=True,
             height=500
         )
+
+
