@@ -12,6 +12,13 @@ def sheet_url(sheet_name):
     """Genera la URL de exportación CSV para cada hoja por nombre."""
     return f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
 
+def to_float(series):
+    """Convierte una columna a float manejando comas o puntos como separador decimal."""
+    return pd.to_numeric(
+        series.astype(str).str.replace(',', '.', regex=False).str.strip(),
+        errors='coerce'
+    )
+
 @st.cache_data(ttl=300)  # Actualiza cada 5 minutos
 def load_data():
     try:
@@ -20,6 +27,12 @@ def load_data():
         df_marketing      = pd.read_csv(sheet_url("Marketing_General"))
         df_campanas       = pd.read_csv(sheet_url("Campanas"))
         df_tareas         = pd.read_csv(sheet_url("Tareas"))
+        
+        # Convertir columnas numéricas con posibles comas como separador decimal
+        for col in ['Ventas ($)', 'Clientes Mensuales', 'Promedio Clientes Semanales', 'Promedio Clientes Diarios']:
+            if col in df_finanzas.columns:
+                df_finanzas[col] = to_float(df_finanzas[col])
+        
         return df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas
     except Exception as e:
         st.error(f"❌ Error cargando datos: {e}")
@@ -61,10 +74,6 @@ tab_finanzas, tab_marketing = st.tabs(["💰 Finanzas y Operaciones", "🚀 Mark
 # ==============================================================================
 with tab_finanzas:
     st.header("📊 Resumen Financiero")
-
-    # Asegurar tipos correctos
-    df_finanzas['Ventas ($)'] = pd.to_numeric(df_finanzas['Ventas ($)'], errors='coerce')
-    df_finanzas['Clientes Mensuales'] = pd.to_numeric(df_finanzas['Clientes Mensuales'], errors='coerce')
 
     # Selección de mes actual (usamos Marzo como referencia)
     meses = df_finanzas['Mes'].tolist()
