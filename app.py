@@ -1,34 +1,39 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+from streamlit_gsheets import GSheetsConnection
 import os
 
 # --- Configuración de página ---
 st.set_page_config(page_title="Dashboard Empresarial", page_icon="📈", layout="wide")
 
 # --- Funciones de Carga de Datos ---
-@st.cache_data
-def load_data(file_path):
-    if not os.path.exists(file_path):
-        st.error(f"El archivo de datos no se encuentra en la ruta: {file_path}. Por favor, generá los datos de prueba primero.")
-        st.stop()
+@st.cache_data(ttl=600) # Cache connection for 10 minutes
+def load_data():
+    # Creamos la conexión a GSheets
+    conn = st.connection("gsheets", type=GSheetsConnection)
+    
+    # URL pública del Google Sheet (esta es una plantilla de ejemplo que el usuario deberá cambiar por la suya)
+    # Ejemplo de estructura de URL: "https://docs.google.com/spreadsheets/d/TU_ID_AQUI/edit"
+    sheet_url = "https://docs.google.com/spreadsheets/d/1yN-Yf60Qh1ZqCszk9_T9V0sI9mZ7xYyX-oA830T7zLQ/edit?usp=sharing"
+    
+    try:
+        # Cargar todas las hojas
+        df_finanzas = conn.read(spreadsheet=sheet_url, worksheet='Finanzas')
+        df_procedimientos = conn.read(spreadsheet=sheet_url, worksheet='Procedimientos')
+        df_marketing = conn.read(spreadsheet=sheet_url, worksheet='Marketing_General')
+        df_campanas = conn.read(spreadsheet=sheet_url, worksheet='Campanas')
+        df_tareas = conn.read(spreadsheet=sheet_url, worksheet='Tareas')
         
-    excel_file = pd.ExcelFile(file_path)
-    
-    # Cargar todas las hojas
-    df_finanzas = excel_file.parse('Finanzas')
-    df_procedimientos = excel_file.parse('Procedimientos')
-    df_marketing = excel_file.parse('Marketing_General')
-    df_campanas = excel_file.parse('Campanas')
-    df_tareas = excel_file.parse('Tareas')
-    
-    return df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas
+        return df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas
+        
+    except Exception as e:
+        st.error("Error conectando con Google Sheets. Por favor, asegúrate de que el enlace sea correcto y el archivo sea público.")
+        st.error(f"Detalle del error: {e}")
+        st.stop()
 
-# Ruta al archivo de datos
-DATA_PATH = os.path.join(os.path.dirname(__file__), 'data', 'dummy_data.xlsx')
-
-# Cargar los datos
-df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas = load_data(DATA_PATH)
+# Cargar los datos desde Google Sheets
+df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas = load_data()
 
 # --- Título y Estilos ---
 st.title("📊 Panel de Control Empresarial")
