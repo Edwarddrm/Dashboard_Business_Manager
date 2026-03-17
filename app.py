@@ -12,10 +12,27 @@ def sheet_url(sheet_name):
     return f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
 
 def to_float(series):
-    return pd.to_numeric(
-        series.astype(str).str.replace(',', '.', regex=False).str.strip(),
-        errors='coerce'
-    )
+    """Convierte una serie a float manejando formatos regionales (miles con punto, decimal con coma)."""
+    # 1. Convertir a string y limpiar espacios
+    s = series.astype(str).str.strip()
+    
+    # 2. Si hay múltiples puntos y una coma, o puntos en posiciones de miles:
+    # Una técnica común es quitar TODOS los puntos y convertir la coma en punto.
+    # Pero para ser más robustos: solo quitamos el punto si hay coma O si hay más de un punto.
+    def clean_number(val):
+        if not val or val.lower() == 'nan':
+            return '0'
+        # Si tiene comas y puntos, el punto es miles
+        if ',' in val and '.' in val:
+            val = val.replace('.', '')
+        # Si tiene múltiples puntos, son miles
+        elif val.count('.') > 1:
+            val = val.replace('.', '')
+        # Finalmente, la coma siempre es decimal en este contexto
+        return val.replace(',', '.')
+
+    s = s.apply(clean_number)
+    return pd.to_numeric(s, errors='coerce')
 
 def safe_int(val, default=0):
     """Convierte a int de forma segura, retorna default si es NaN o inválido."""
