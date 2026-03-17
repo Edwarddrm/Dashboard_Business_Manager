@@ -152,7 +152,11 @@ with tab_mkt:
     for i, (k, col) in enumerate(zip(keys, cols)):
         val = metricas[k]
         icon = icons[i] if i < len(icons) else "📊"
-        col.metric(f"{icon} {k}", f"{val:,.1f}" if str(val).replace('.', '', 1).isdigit() and '.' in str(val) else f"{int(val):,}")
+        # Mostramos como float si tiene decimales significativos, sino como entero seguro
+        if pd.notnull(val) and val % 1 != 0:
+            col.metric(f"{icon} {k}", f"{safe_float(val):,.1f}")
+        else:
+            col.metric(f"{icon} {k}", f"{safe_int(val):,}")
 
     st.markdown("---")
     st.subheader("🎯 Campañas de Marketing Activas")
@@ -206,16 +210,20 @@ with tab_gest:
         completadas = len(df_tareas[df_tareas['Estado'] == 'Completada'])
         en_progreso = len(df_tareas[df_tareas['Estado'] == 'En Progreso'])
         pendientes  = len(df_tareas[df_tareas['Estado'] == 'Pendiente'])
-        total       = len(df_tareas)
-        st.progress(completadas / total, text=f"✅ {completadas}/{total} tareas completadas")
+        total = len(df_tareas)
+        
+        if total > 0:
+            st.progress(completadas / total, text=f"✅ {completadas}/{total} tareas completadas")
 
-        fig_tareas = px.pie(
-            values=[completadas, en_progreso, pendientes],
-            names=['Completadas', 'En Progreso', 'Pendientes'],
-            color_discrete_sequence=['#28a745', '#fd7e14', '#dc3545'],
-            hole=0.45, template='plotly_white'
-        )
-        st.plotly_chart(fig_tareas, use_container_width=True)
+            fig_tareas = px.pie(
+                values=[completadas, en_progreso, pendientes],
+                names=['Completadas', 'En Progreso', 'Pendientes'],
+                color_discrete_sequence=['#28a745', '#fd7e14', '#dc3545'],
+                hole=0.45, template='plotly_white'
+            )
+            st.plotly_chart(fig_tareas, use_container_width=True)
+        else:
+            st.info("No hay tareas registradas en la lista.")
     with col_info:
         st.metric("✅ Completadas", completadas)
         st.metric("🔄 En Progreso", en_progreso)
