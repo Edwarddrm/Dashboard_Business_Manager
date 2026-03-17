@@ -42,7 +42,7 @@ else:
     
     with login_tab:
         # Streamlit-authenticator login
-        name, authentication_status, username = authenticator.login("Login", "main")
+        name, authentication_status, username = authenticator.login(location='main')
         
         # Botón mock para Google Login (esto requiere configuración OIDC en secrets.toml)
         st.markdown("---")
@@ -51,7 +51,8 @@ else:
 
     with register_tab:
         try:
-            if authenticator.register_user('Registrar nuevo usuario', pre_authorization=False):
+            # En la versión 0.4.x, register_user usa 'location'. No acepta un string de título posicional.
+            if authenticator.register_user(location='main', pre_authorized=None):
                 st.success('Usuario registrado correctamente. Revisa tu correo (Simulado).')
                 # En una app real aquí enviaríamos el correo de verificación
         except Exception as e:
