@@ -30,6 +30,10 @@ def load_data():
         for col in ['Ventas ($)', 'Clientes Mensuales', 'Promedio Clientes Semanales', 'Promedio Clientes Diarios']:
             if col in df_finanzas.columns:
                 df_finanzas[col] = to_float(df_finanzas[col])
+        
+        # Limpiar espacios en la columna Mes para evitar errores de filtrado
+        if 'Mes' in df_finanzas.columns:
+            df_finanzas['Mes'] = df_finanzas['Mes'].astype(str).str.strip()
 
         return df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas, df_personal
     except Exception as e:
@@ -70,13 +74,18 @@ with tab_fin:
 
     meses = df_finanzas['Mes'].tolist()
     mes_sel = st.selectbox("Selecciona el mes a detallar:", meses, index=2)
-    current = df_finanzas[df_finanzas['Mes'] == mes_sel].iloc[0]
+    
+    fila = df_finanzas[df_finanzas['Mes'] == mes_sel]
+    if fila.empty:
+        st.warning(f"No se encontraron datos para el mes: '{mes_sel}'. Verifica el Google Sheet.")
+    else:
+        current = fila.iloc[0]
 
-    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-    kpi1.metric("💵 Ventas del Mes", f"${int(current['Ventas ($)']):,}")
-    kpi2.metric("👥 Clientes Mensuales", int(current['Clientes Mensuales']))
-    kpi3.metric("📅 Prom. Clientes / Semana", f"{float(current['Promedio Clientes Semanales']):.1f}")
-    kpi4.metric("📆 Prom. Clientes / Día", f"{float(current['Promedio Clientes Diarios']):.1f}")
+        kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+        kpi1.metric("💵 Ventas del Mes", f"${int(current['Ventas ($)']):,}")
+        kpi2.metric("👥 Clientes Mensuales", int(current['Clientes Mensuales']))
+        kpi3.metric("📅 Prom. Clientes / Semana", f"{float(current['Promedio Clientes Semanales']):.1f}")
+        kpi4.metric("📆 Prom. Clientes / Día", f"{float(current['Promedio Clientes Diarios']):.1f}")
 
     st.markdown("---")
     col1, col2 = st.columns(2)
