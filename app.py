@@ -9,6 +9,9 @@ import time
 # --- Configuración de página ---
 st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layout="wide")
 
+# ID por defecto para nuevos usuarios
+DEFAULT_SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
+
 # --- CONFIGURACIÓN DE USUARIOS (Simulada para este ejemplo) ---
 # En una app real, esto iría a una base de datos (Supabase/Firebase)
 if 'user_db' not in st.session_state:
@@ -32,34 +35,78 @@ authenticator = stauth.Authenticate(
     cookie_expiry_days=30
 )
 
-# --- Sidebar: Login / Out ---
-if st.session_state.get("authentication_status"):
-    authenticator.logout("Cerrar Sesión", "sidebar")
-    st.sidebar.markdown(f"**Usuario:** {st.session_state['name']}")
-else:
+def send_email(to_email, subject, body):
+    """Envía un correo real usando SMTP y Streamlit Secrets."""
+    import smtplib
+    from email.mime.text import MIMEText
+    
+    try:
+        # Validar si existen los secretos antes de intentar enviar
+        if "emails" not in st.secrets:
+            st.info("💡 **Configuración requerida:** Para que los correos lleguen, debes añadir tus claves de SMTP en los 'Secrets' de Streamlit Cloud.")
+            return False
+            
+        smtp_user = st.secrets["emails"]["smtp_user"]
+        smtp_pass = st.secrets["emails"]["smtp_pass"]
+        smtp_server = st.secrets.get("emails", {}).get("smtp_server", "smtp.gmail.com")
+        smtp_port = int(st.secrets.get("emails", {}).get("smtp_port", 587))
+
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        msg['From'] = smtp_user
+        msg['To'] = to_email
+
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_pass)
+            server.send_message(msg)
+        return True
+    except Exception as e:
+        st.warning(f"No se pudo enviar el correo real: {e}")
+        st.info("💡 Para activar correos reales, configura 'emails.smtp_user' y 'emails.smtp_pass' en los Secrets de Streamlit.")
+        return False
+
+if not st.session_state.get("authentication_status"):
     # Mostrar Login / Registro en el cuerpo principal si no está autenticado
     login_tab, register_tab = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta"])
     
     with login_tab:
-        # Streamlit-authenticator login
         authenticator.login(location='main')
-        
-        # Botón mock para Google Login (esto requiere configuración OIDC en secrets.toml)
         st.markdown("---")
         if st.button("🔵 Entrar con Google (Demo)"):
-            st.info("Para habilitar Google Login real, se deben configurar los 'Secrets' con el Client ID de Google Cloud.")
+            st.info("Configura 'auth.google' en Secrets para habilitar Google Login real.")
 
     with register_tab:
         try:
-            # En la versión 0.4.x, register_user usa 'location'. No acepta un string de título posicional.
+            # register_user devuelve True si los datos son válidos y se añadieron al dict
             if authenticator.register_user(location='main', pre_authorized=None):
-                st.success('Usuario registrado correctamente. Revisa tu correo (Simulado).')
-                # En una app real aquí enviaríamos el correo de verificación
+                st.success('¡Registro exitoso! 📧 Intentando enviar correo de bienvenida...')
+                
+                # Obtener el último usuario registrado (el que acabamos de crear)
+                # st-authenticator lo añade automáticamente a st.session_state['user_db']
+                new_username = list(st.session_state['user_db']['usernames'].keys())[-1]
+                user_info = st.session_state['user_db']['usernames'][new_username]
+                
+                # Personalizar los campos extra para nuestro dashboard
+                user_info['sheet_id'] = DEFAULT_SHEET_ID
+                user_info['first_login'] = True
+                
+                # Enviar correo real si hay secretos configurados
+                enviado = send_email(
+                    user_info['email'],
+                    "Bienvenido a tu Dashboard Dental Premium",
+                    f"Hola {user_info['name']},\n\nTu cuenta ha sido creada con éxito. Ya puedes entrar y configurar tu Google Sheet.\n\nSaludos,\nEquipo Antigravity"
+                )
+                if enviado:
+                    st.success("Correo de confirmación enviado. ¡Ya puedes iniciar sesión!")
+                else:
+                    st.info("Usuario creado, pero los correos reales están desactivados (falta configurar SMTP en Secrets).")
+                    
         except Exception as e:
-            st.error(e)
+            st.error(f"Error en el registro: {e}")
 
 if not st.session_state.get("authentication_status"):
-    st.stop() # Detener ejecución si no está logueado
+    st.stop()
 
 # --- ID del Google Sheet del Usuario ---
 user_data = st.session_state['user_db']['usernames'].get(st.session_state['username'], {})
