@@ -5,11 +5,34 @@ import plotly.express as px
 # --- Configuración de página ---
 st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layout="wide")
 
-# --- ID del Google Sheet ---
-SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
+# --- Configuración en Sidebar ---
+st.sidebar.title("⚙️ Configuración")
+st.sidebar.markdown("Para usar tus propios datos, pega el enlace de tu Google Sheet abajo.")
 
-def sheet_url(sheet_name):
-    return f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
+# ID por defecto (el actual del usuario)
+DEFAULT_SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
+
+sheet_input = st.sidebar.text_input(
+    "Enlace de Google Sheet:",
+    placeholder="https://docs.google.com/spreadsheets/d/...",
+    help="Asegúrate que la hoja sea pública (Cualquier persona con el enlace puede ver)"
+)
+
+# Función para extraer el ID del enlace
+def extract_sheet_id(url):
+    if not url:
+        return DEFAULT_SHEET_ID
+    try:
+        if "/d/" in url:
+            return url.split("/d/")[1].split("/")[0]
+        return url # Si meten solo el ID
+    except:
+        return DEFAULT_SHEET_ID
+
+SHEET_ID = extract_sheet_id(sheet_input)
+
+def sheet_url(sheet_name, sheet_id):
+    return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
 
 def to_float(series):
     """Convierte una serie a float manejando formatos regionales (miles con punto, decimal con coma)."""
@@ -55,14 +78,14 @@ def safe_float(val, default=0.0):
         return default
 
 @st.cache_data(ttl=300)
-def load_data():
+def load_data(sid):
     try:
-        df_finanzas       = pd.read_csv(sheet_url("Finanzas"))
-        df_procedimientos = pd.read_csv(sheet_url("Procedimientos"))
-        df_marketing      = pd.read_csv(sheet_url("Marketing_General"))
-        df_campanas       = pd.read_csv(sheet_url("Campanas"))
-        df_tareas         = pd.read_csv(sheet_url("Tareas"))
-        df_personal       = pd.read_csv(sheet_url("Personal"))
+        df_finanzas       = pd.read_csv(sheet_url("Finanzas", sid))
+        df_procedimientos = pd.read_csv(sheet_url("Procedimientos", sid))
+        df_marketing      = pd.read_csv(sheet_url("Marketing_General", sid))
+        df_campanas       = pd.read_csv(sheet_url("Campanas", sid))
+        df_tareas         = pd.read_csv(sheet_url("Tareas", sid))
+        df_personal       = pd.read_csv(sheet_url("Personal", sid))
 
         for col in ['Ventas ($)', 'Clientes Mensuales', 'Promedio Clientes Semanales', 'Promedio Clientes Diarios']:
             if col in df_finanzas.columns:
@@ -75,9 +98,20 @@ def load_data():
         return df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas, df_personal
     except Exception as e:
         st.error(f"❌ Error cargando datos: {e}")
+        st.info("💡 Asegúrate de que las hojas tengan los nombres correctos y que el enlace sea público.")
         st.stop()
 
-df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas, df_personal = load_data()
+df_finanzas, df_procedimientos, df_marketing, df_campanas, df_tareas, df_personal = load_data(SHEET_ID)
+
+# Ayuda en el sidebar
+st.sidebar.markdown("---")
+with st.sidebar.expander("❓ ¿Cómo usar mi propia hoja?"):
+    st.markdown("""
+    1. Crea un **Copia** de la plantilla.
+    2. En Google Sheets, ve a **Compartir** > **Cualquier persona con el enlace** > **Lector**.
+    3. Copia el enlace de la barra de direcciones.
+    4. Pégalo arriba en el campo de configuración.
+    """)
 
 # --- Estilos CSS ---
 st.markdown("""
