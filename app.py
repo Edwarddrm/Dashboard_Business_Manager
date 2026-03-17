@@ -1,35 +1,111 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import streamlit_authenticator as stauth
+import yaml
+from yaml.loader import SafeLoader
+import time
 
 # --- Configuración de página ---
 st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layout="wide")
 
+# --- CONFIGURACIÓN DE USUARIOS (Simulada para este ejemplo) ---
+# En una app real, esto iría a una base de datos (Supabase/Firebase)
+if 'user_db' not in st.session_state:
+    st.session_state['user_db'] = {
+        'usernames': {
+            'admin': {
+                'email': 'admin@clinica.com',
+                'name': 'Administrador',
+                'password': 'js$12$Hk.vO6ZfXvO6ZfXvO6ZfX.vO6ZfXvO6ZfXvO6ZfXvO6ZfX', # '123' hashed (ejemplo)
+                'sheet_id': '1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20',
+                'first_login': False
+            }
+        }
+    }
+
+# --- LÓGICA DE AUTENTICACIÓN ---
+authenticator = stauth.Authenticate(
+    st.session_state['user_db'],
+    'dental_dashboard_cookie',
+    'auth_key',
+    cookie_expiry_days=30
+)
+
+# --- Sidebar: Login / Out ---
+if st.session_state.get("authentication_status"):
+    authenticator.logout("Cerrar Sesión", "sidebar")
+    st.sidebar.markdown(f"**Usuario:** {st.session_state['name']}")
+else:
+    # Mostrar Login / Registro en el cuerpo principal si no está autenticado
+    login_tab, register_tab = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta"])
+    
+    with login_tab:
+        # Streamlit-authenticator login
+        name, authentication_status, username = authenticator.login("Login", "main")
+        
+        # Botón mock para Google Login (esto requiere configuración OIDC en secrets.toml)
+        st.markdown("---")
+        if st.button("🔵 Entrar con Google (Demo)"):
+            st.info("Para habilitar Google Login real, se deben configurar los 'Secrets' con el Client ID de Google Cloud.")
+
+    with register_tab:
+        try:
+            if authenticator.register_user('Registrar nuevo usuario', pre_authorization=False):
+                st.success('Usuario registrado correctamente. Revisa tu correo (Simulado).')
+                # En una app real aquí enviaríamos el correo de verificación
+        except Exception as e:
+            st.error(e)
+
+if not st.session_state.get("authentication_status"):
+    st.stop() # Detener ejecución si no está logueado
+
+# --- ID del Google Sheet del Usuario ---
+user_data = st.session_state['user_db']['usernames'].get(st.session_state['username'], {})
+SHEET_ID = user_data.get('sheet_id', "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20")
+is_first_login = user_data.get('first_login', True)
+
+# --- Tutorial Inicial ---
+if is_first_login:
+    st.balloons()
+    st.success(f"¡Bienvenido {st.session_state['name']}! 👋")
+    with st.expander("🚀 Tutorial Rápido: Cómo configurar tus Dashboard", expanded=True):
+        st.markdown("""
+        ### ¡Bienvenido a tu plataforma de gestión! 🦷
+        Sigue estos pasos para ver tus propios datos:
+        
+        1. **Prepara tu Google Sheet**: Si no tienes una, [haz clic aquí para copiar nuestra plantilla](https://docs.google.com/spreadsheets/d/1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20/copy).
+        2. **Comparte la Hoja**: En Google, ve a 'Compartir' > 'Cualquier persona con el enlace' > 'Lector'.
+        3. **Configura el Dash**: Ve a la pestaña **⚙️ Configuración** a la izquierda y pega tu enlace.
+        4. **¡Listo!**: Los gráficos se generarán automáticamente con tu información.
+        """)
+        if st.button("Entendido, ¡empecemos!"):
+            st.session_state['user_db']['usernames'][st.session_state['username']]['first_login'] = False
+            st.rerun()
+
 # --- Configuración en Sidebar ---
 st.sidebar.title("⚙️ Configuración")
-st.sidebar.markdown("Para usar tus propios datos, pega el enlace de tu Google Sheet abajo.")
-
-# ID por defecto (el actual del usuario)
-DEFAULT_SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
+st.sidebar.markdown("Personaliza tu fuente de datos.")
 
 sheet_input = st.sidebar.text_input(
     "Enlace de Google Sheet:",
-    placeholder="https://docs.google.com/spreadsheets/d/...",
-    help="Asegúrate que la hoja sea pública (Cualquier persona con el enlace puede ver)"
+    value=f"https://docs.google.com/spreadsheets/d/{SHEET_ID}/edit",
+    help="Asegúrate que la hoja sea pública"
 )
 
 # Función para extraer el ID del enlace
 def extract_sheet_id(url):
-    if not url:
-        return DEFAULT_SHEET_ID
+    if not url or "spreadsheets/d/" not in url:
+        return SHEET_ID
     try:
-        if "/d/" in url:
-            return url.split("/d/")[1].split("/")[0]
-        return url # Si meten solo el ID
+        return url.split("/d/")[1].split("/")[0]
     except:
-        return DEFAULT_SHEET_ID
+        return SHEET_ID
 
-SHEET_ID = extract_sheet_id(sheet_input)
+NEW_SHEET_ID = extract_sheet_id(sheet_input)
+if NEW_SHEET_ID != SHEET_ID:
+    st.session_state['user_db']['usernames'][st.session_state['username']]['sheet_id'] = NEW_SHEET_ID
+    st.rerun() # Recargar con los nuevos datos
 
 def sheet_url(sheet_name, sheet_id):
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
