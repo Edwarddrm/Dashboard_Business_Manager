@@ -17,6 +17,26 @@ def to_float(series):
         errors='coerce'
     )
 
+def safe_int(val, default=0):
+    """Convierte a int de forma segura, retorna default si es NaN o inválido."""
+    try:
+        import math
+        if val is None or (isinstance(val, float) and math.isnan(val)):
+            return default
+        return int(val)
+    except (ValueError, TypeError):
+        return default
+
+def safe_float(val, default=0.0):
+    """Convierte a float de forma segura, retorna default si es NaN o inválido."""
+    try:
+        import math
+        if val is None or (isinstance(val, float) and math.isnan(val)):
+            return default
+        return float(val)
+    except (ValueError, TypeError):
+        return default
+
 @st.cache_data(ttl=300)
 def load_data():
     try:
@@ -82,10 +102,10 @@ with tab_fin:
         current = fila.iloc[0]
 
         kpi1, kpi2, kpi3, kpi4 = st.columns(4)
-        kpi1.metric("💵 Ventas del Mes", f"${int(current['Ventas ($)']):,}")
-        kpi2.metric("👥 Clientes Mensuales", int(current['Clientes Mensuales']))
-        kpi3.metric("📅 Prom. Clientes / Semana", f"{float(current['Promedio Clientes Semanales']):.1f}")
-        kpi4.metric("📆 Prom. Clientes / Día", f"{float(current['Promedio Clientes Diarios']):.1f}")
+        kpi1.metric("💵 Ventas del Mes", f"${safe_int(current['Ventas ($)']):,}")
+        kpi2.metric("👥 Clientes Mensuales", safe_int(current['Clientes Mensuales']))
+        kpi3.metric("📅 Prom. Clientes / Semana", f"{safe_float(current['Promedio Clientes Semanales']):.1f}")
+        kpi4.metric("📆 Prom. Clientes / Día", f"{safe_float(current['Promedio Clientes Diarios']):.1f}")
 
     st.markdown("---")
     col1, col2 = st.columns(2)
