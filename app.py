@@ -42,7 +42,7 @@ else:
     
     with login_tab:
         # Streamlit-authenticator login
-        name, authentication_status, username = authenticator.login(location='main')
+        authenticator.login(location='main')
         
         # Botón mock para Google Login (esto requiere configuración OIDC en secrets.toml)
         st.markdown("---")
