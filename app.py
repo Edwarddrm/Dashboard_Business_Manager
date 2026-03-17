@@ -12,27 +12,38 @@ st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layou
 # ID por defecto para nuevos usuarios
 DEFAULT_SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
 
-# --- CONFIGURACIÓN DE USUARIOS (Simulada para este ejemplo) ---
-# En una app real, esto iría a una base de datos (Supabase/Firebase)
+# --- CONFIGURACIÓN DE USUARIOS (Estructura oficial 0.4.x) ---
 if 'user_db' not in st.session_state:
     st.session_state['user_db'] = {
-        'usernames': {
-            'admin': {
-                'email': 'admin@clinica.com',
-                'name': 'Administrador',
-                'password': 'js$12$Hk.vO6ZfXvO6ZfXvO6ZfX.vO6ZfXvO6ZfXvO6ZfXvO6ZfX', # '123' hashed (ejemplo)
-                'sheet_id': '1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20',
-                'first_login': False
+        'credentials': {
+            'usernames': {
+                'admin': {
+                    'email': 'admin@clinica.com',
+                    'name': 'Administrador',
+                    'password': '$2b$12$QjGyRcH.6DoxKkg7h4S2F.SJAsd1mVGmrjow4/Y86p8EaLtgosujS', # '123' bcrypt hash
+                    'sheet_id': '1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20',
+                    'first_login': False
+                }
             }
+        },
+        'cookie': {
+            'expiry_days': 30,
+            'key': 'auth_key',
+            'name': 'dental_dashboard_cookie'
+        },
+        'preauthorized': {
+            'emails': []
         }
     }
 
 # --- LÓGICA DE AUTENTICACIÓN ---
+# auto_hash=False porque ya estamos manejando los hashes correctamente y persistiendo la sesión
 authenticator = stauth.Authenticate(
-    st.session_state['user_db'],
-    'dental_dashboard_cookie',
-    'auth_key',
-    cookie_expiry_days=30
+    st.session_state['user_db']['credentials'],
+    st.session_state['user_db']['cookie']['name'],
+    st.session_state['user_db']['cookie']['key'],
+    st.session_state['user_db']['cookie']['expiry_days'],
+    st.session_state['user_db']['preauthorized']
 )
 
 def send_email(to_email, subject, body):
@@ -78,29 +89,36 @@ if not st.session_state.get("authentication_status"):
 
     with register_tab:
         try:
-            # register_user devuelve True si los datos son válidos y se añadieron al dict
-            if authenticator.register_user(location='main', pre_authorized=None):
+            # register_user devuelve True si un nuevo usuario fue creado exitosamente
+            if authenticator.register_user(location='main'):
                 st.success('¡Registro exitoso! 📧 Intentando enviar correo de bienvenida...')
                 
-                # Obtener el último usuario registrado (el que acabamos de crear)
-                # st-authenticator lo añade automáticamente a st.session_state['user_db']
-                new_username = list(st.session_state['user_db']['usernames'].keys())[-1]
-                user_info = st.session_state['user_db']['usernames'][new_username]
+                # Buscamos el usuario recién creado en nuestra base de datos persistente
+                # st-authenticator actualiza el dict 'credentials' que le pasamos
+                all_usernames = list(st.session_state['user_db']['credentials']['usernames'].keys())
+                new_username = all_usernames[-1] if all_usernames else None
                 
-                # Personalizar los campos extra para nuestro dashboard
-                user_info['sheet_id'] = DEFAULT_SHEET_ID
-                user_info['first_login'] = True
-                
-                # Enviar correo real si hay secretos configurados
-                enviado = send_email(
-                    user_info['email'],
-                    "Bienvenido a tu Dashboard Dental Premium",
-                    f"Hola {user_info['name']},\n\nTu cuenta ha sido creada con éxito. Ya puedes entrar y configurar tu Google Sheet.\n\nSaludos,\nEquipo Antigravity"
-                )
-                if enviado:
-                    st.success("Correo de confirmación enviado. ¡Ya puedes iniciar sesión!")
-                else:
-                    st.info("Usuario creado, pero los correos reales están desactivados (falta configurar SMTP en Secrets).")
+                if new_username:
+                    user_info = st.session_state['user_db']['credentials']['usernames'][new_username]
+                    
+                    # Aseguramos que tenga los campos necesarios para nuestro negocio
+                    if 'sheet_id' not in user_info:
+                        user_info['sheet_id'] = DEFAULT_SHEET_ID
+                    if 'first_login' not in user_info:
+                        user_info['first_login'] = True
+                    
+                    # Enviar correo real si hay secretos configurados
+                    enviado = send_email(
+                        user_info['email'],
+                        "Bienvenido a tu Dashboard Dental Premium",
+                        f"Hola {user_info['name']},\n\nTu cuenta ha sido creada con éxito. Ya puedes entrar y configurar tu Google Sheet.\n\nSaludos,\nEquipo DashDental"
+                    )
+                    if enviado:
+                        st.success("Correo de confirmación enviado. ¡Ya puedes iniciar sesión!")
+                    else:
+                        st.info("Usuario creado, pero los correos reales están desactivados (falta configurar SMTP en Secrets).")
+                    
+                    st.info("Ya puedes volver a la pestaña de 'Iniciar Sesión'.")
                     
         except Exception as e:
             st.error(f"Error en el registro: {e}")
@@ -109,7 +127,7 @@ if not st.session_state.get("authentication_status"):
     st.stop()
 
 # --- ID del Google Sheet del Usuario ---
-user_data = st.session_state['user_db']['usernames'].get(st.session_state['username'], {})
+user_data = st.session_state['user_db']['credentials']['usernames'].get(st.session_state['username'], {})
 SHEET_ID = user_data.get('sheet_id', "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20")
 is_first_login = user_data.get('first_login', True)
 
