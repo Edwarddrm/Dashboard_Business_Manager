@@ -50,7 +50,9 @@ SHEET_ID = st.session_state['sheet_id']
 
 # --- Tutorial Inicial ---
 if 'tutorial_shown' not in st.session_state:
-    st.balloons()
+    if 'balloons_shown' not in st.session_state:
+        st.balloons()
+        st.session_state['balloons_shown'] = True
     st.success("¡Bienvenido! 👋")
     with st.expander("🚀 Tutorial Rápido: Cómo configurar tus Dashboard", expanded=True):
         st.markdown("""
