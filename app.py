@@ -1,50 +1,14 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import streamlit_authenticator as stauth
-import yaml
-from yaml.loader import SafeLoader
-import time
-
 # --- Configuración de página ---
 st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layout="wide")
 
-# ID por defecto para nuevos usuarios
+# ID por defecto para el Google Sheet
 DEFAULT_SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
 
-# --- CONFIGURACIÓN DE USUARIOS (Estructura oficial 0.4.x) ---
-if 'user_db' not in st.session_state:
-    st.session_state['user_db'] = {
-        'credentials': {
-            'usernames': {
-                'admin': {
-                    'email': 'admin@clinica.com',
-                    'name': 'Administrador',
-                    'password': '$2b$12$QjGyRcH.6DoxKkg7h4S2F.SJAsd1mVGmrjow4/Y86p8EaLtgosujS', # '123' bcrypt hash
-                    'sheet_id': '1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20',
-                    'first_login': False
-                }
-            }
-        },
-        'cookie': {
-            'expiry_days': 30,
-            'key': 'auth_key',
-            'name': 'dental_dashboard_cookie'
-        },
-        'preauthorized': {
-            'emails': []
-        }
-    }
-
-# --- LÓGICA DE AUTENTICACIÓN ---
-# auto_hash=False porque ya estamos manejando los hashes correctamente y persistiendo la sesión
-authenticator = stauth.Authenticate(
-    st.session_state['user_db']['credentials'],
-    st.session_state['user_db']['cookie']['name'],
-    st.session_state['user_db']['cookie']['key'],
-    st.session_state['user_db']['cookie']['expiry_days'],
-    st.session_state['user_db']['preauthorized']
-)
+if 'sheet_id' not in st.session_state:
+    st.session_state['sheet_id'] = DEFAULT_SHEET_ID
 
 def send_email(to_email, subject, body):
     """Envía un correo real usando SMTP y Streamlit Secrets."""
@@ -54,7 +18,7 @@ def send_email(to_email, subject, body):
     try:
         # Validar si existen los secretos antes de intentar enviar
         if "emails" not in st.secrets:
-            st.info("💡 **Configuración requerida:** Para que los correos lleguen, debes añadir tus claves de SMTP en los 'Secrets' de Streamlit Cloud.")
+            # st.info("💡 **Configuración requerida:** Para que los correos lleguen, debes añadir tus claves de SMTP en los 'Secrets' de Streamlit Cloud.")
             return False
             
         smtp_user = st.secrets["emails"]["smtp_user"]
@@ -73,68 +37,17 @@ def send_email(to_email, subject, body):
             server.send_message(msg)
         return True
     except Exception as e:
-        st.warning(f"No se pudo enviar el correo real: {e}")
-        st.info("💡 Para activar correos reales, configura 'emails.smtp_user' y 'emails.smtp_pass' en los Secrets de Streamlit.")
+        # st.warning(f"No se pudo enviar el correo real: {e}")
         return False
 
-if not st.session_state.get("authentication_status"):
-    # Mostrar Login / Registro en el cuerpo principal si no está autenticado
-    login_tab, register_tab = st.tabs(["🔑 Iniciar Sesión", "📝 Crear Cuenta"])
-    
-    with login_tab:
-        authenticator.login(location='main')
-        st.markdown("---")
-        if st.button("🔵 Entrar con Google (Demo)"):
-            st.info("Configura 'auth.google' en Secrets para habilitar Google Login real.")
-
-    with register_tab:
-        try:
-            # register_user devuelve True si un nuevo usuario fue creado exitosamente
-            if authenticator.register_user(location='main'):
-                st.success('¡Registro exitoso! 📧 Intentando enviar correo de bienvenida...')
-                
-                # Buscamos el usuario recién creado en nuestra base de datos persistente
-                # st-authenticator actualiza el dict 'credentials' que le pasamos
-                all_usernames = list(st.session_state['user_db']['credentials']['usernames'].keys())
-                new_username = all_usernames[-1] if all_usernames else None
-                
-                if new_username:
-                    user_info = st.session_state['user_db']['credentials']['usernames'][new_username]
-                    
-                    # Aseguramos que tenga los campos necesarios para nuestro negocio
-                    if 'sheet_id' not in user_info:
-                        user_info['sheet_id'] = DEFAULT_SHEET_ID
-                    if 'first_login' not in user_info:
-                        user_info['first_login'] = True
-                    
-                    # Enviar correo real si hay secretos configurados
-                    enviado = send_email(
-                        user_info['email'],
-                        "Bienvenido a tu Dashboard Dental Premium",
-                        f"Hola {user_info['name']},\n\nTu cuenta ha sido creada con éxito. Ya puedes entrar y configurar tu Google Sheet.\n\nSaludos,\nEquipo DashDental"
-                    )
-                    if enviado:
-                        st.success("Correo de confirmación enviado. ¡Ya puedes iniciar sesión!")
-                    else:
-                        st.info("Usuario creado, pero los correos reales están desactivados (falta configurar SMTP en Secrets).")
-                    
-                    st.info("Ya puedes volver a la pestaña de 'Iniciar Sesión'.")
-                    
-        except Exception as e:
-            st.error(f"Error en el registro: {e}")
-
-if not st.session_state.get("authentication_status"):
-    st.stop()
-
 # --- ID del Google Sheet del Usuario ---
-user_data = st.session_state['user_db']['credentials']['usernames'].get(st.session_state['username'], {})
-SHEET_ID = user_data.get('sheet_id', "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20")
-is_first_login = user_data.get('first_login', True)
+SHEET_ID = st.session_state['sheet_id']
+
 
 # --- Tutorial Inicial ---
-if is_first_login:
+if 'tutorial_shown' not in st.session_state:
     st.balloons()
-    st.success(f"¡Bienvenido {st.session_state['name']}! 👋")
+    st.success("¡Bienvenido! 👋")
     with st.expander("🚀 Tutorial Rápido: Cómo configurar tus Dashboard", expanded=True):
         st.markdown("""
         ### ¡Bienvenido a tu plataforma de gestión! 🦷
@@ -146,7 +59,7 @@ if is_first_login:
         4. **¡Listo!**: Los gráficos se generarán automáticamente con tu información.
         """)
         if st.button("Entendido, ¡empecemos!"):
-            st.session_state['user_db']['usernames'][st.session_state['username']]['first_login'] = False
+            st.session_state['tutorial_shown'] = True
             st.rerun()
 
 # --- Configuración en Sidebar ---
@@ -170,7 +83,7 @@ def extract_sheet_id(url):
 
 NEW_SHEET_ID = extract_sheet_id(sheet_input)
 if NEW_SHEET_ID != SHEET_ID:
-    st.session_state['user_db']['usernames'][st.session_state['username']]['sheet_id'] = NEW_SHEET_ID
+    st.session_state['sheet_id'] = NEW_SHEET_ID
     st.rerun() # Recargar con los nuevos datos
 
 def sheet_url(sheet_name, sheet_id):
