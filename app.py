@@ -1,14 +1,18 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-# --- Configuración de página ---
-st.set_page_config(page_title="Clínica Dental Premium", page_icon="🦷", layout="wide")
 
 # ID por defecto para el Google Sheet
 DEFAULT_SHEET_ID = "1m7st9kE61vHlLMNFGxSiR1IKkRzmhkJ482x17Rsmg20"
 
 if 'sheet_id' not in st.session_state:
     st.session_state['sheet_id'] = DEFAULT_SHEET_ID
+
+if 'clinic_name' not in st.session_state:
+    st.session_state['clinic_name'] = "Clínica Dental Premium"
+
+# --- Configuración de página ---
+st.set_page_config(page_title=st.session_state['clinic_name'], page_icon="🦷", layout="wide")
 
 def send_email(to_email, subject, body):
     """Envía un correo real usando SMTP y Streamlit Secrets."""
@@ -72,6 +76,12 @@ sheet_input = st.sidebar.text_input(
     help="Asegúrate que la hoja sea pública"
 )
 
+clinic_name_input = st.sidebar.text_input(
+    "Nombre de la Clínica:",
+    value=st.session_state['clinic_name'],
+    help="Cambia el título del dashboard"
+)
+
 # Función para extraer el ID del enlace
 def extract_sheet_id(url):
     if not url or "spreadsheets/d/" not in url:
@@ -85,6 +95,10 @@ NEW_SHEET_ID = extract_sheet_id(sheet_input)
 if NEW_SHEET_ID != SHEET_ID:
     st.session_state['sheet_id'] = NEW_SHEET_ID
     st.rerun() # Recargar con los nuevos datos
+
+if clinic_name_input != st.session_state['clinic_name']:
+    st.session_state['clinic_name'] = clinic_name_input
+    st.rerun()
 
 def sheet_url(sheet_name, sheet_id):
     return f"https://docs.google.com/spreadsheets/d/{sheet_id}/gviz/tq?tqx=out:csv&sheet={sheet_name}"
@@ -183,7 +197,7 @@ div[data-testid="metric-container"] {
 """, unsafe_allow_html=True)
 
 # --- Título ---
-st.title("🦷 Dashboard · Clínica Dental Premium")
+st.title(f"🦷 Dashboard · {st.session_state['clinic_name']}")
 st.markdown("*Panel de control en tiempo real — actualizado desde Google Sheets cada 5 minutos*")
 st.markdown("---")
 
