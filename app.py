@@ -48,11 +48,42 @@ def send_email(to_email, subject, body):
 SHEET_ID = st.session_state['sheet_id']
 
 
+def money_rain():
+    """Lluvia de billetes personalizada con CSS."""
+    st.markdown("""
+    <style>
+    @keyframes money-fall {
+        0% { top: -10%; transform: rotate(0deg); opacity: 1; }
+        100% { top: 110%; transform: rotate(360deg); opacity: 0; }
+    }
+    .money {
+        position: fixed;
+        font-size: 2rem;
+        user-select: none;
+        z-index: 9999;
+        animation: money-fall linear infinite;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Inyectar múltiples billetes con posiciones y tiempos aleatorios
+    import random
+    money_html = ""
+    emojis = ["💵", "💸", "💰", "🤑"]
+    for i in range(25):
+        left = random.randint(0, 95)
+        duration = random.uniform(3, 7)
+        delay = random.uniform(0, 5)
+        emoji = random.choice(emojis)
+        money_html += f'<div class="money" style="left: {left}%; animation-duration: {duration}s; animation-delay: {delay}s;">{emoji}</div>'
+    
+    st.markdown(money_html, unsafe_allow_html=True)
+
 # --- Tutorial Inicial ---
 if 'tutorial_shown' not in st.session_state:
-    if 'balloons_shown' not in st.session_state:
-        st.balloons()
-        st.session_state['balloons_shown'] = True
+    if 'money_rain_shown' not in st.session_state:
+        money_rain()
+        st.session_state['money_rain_shown'] = True
     st.success("¡Bienvenido! 👋")
     with st.expander("🚀 Tutorial Rápido: Cómo configurar tus Dashboard", expanded=True):
         st.markdown("""
