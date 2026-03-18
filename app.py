@@ -301,33 +301,47 @@ with tab_mkt:
     metricas = df_marketing.set_index('Métrica')['Valor'].to_dict()
 
     # Organizados por grupos
-    col_rs, col_email = st.columns(2)
+    c_rs, c_em, c_wa = st.columns(3)
     
-    with col_rs:
-        st.subheader("📱 Redes Sociales")
-        sub_col1, sub_col2 = st.columns(2)
-        sub_col1.metric("📸 Seguidores IG", f"{safe_int(metricas.get('Seguidores Instagram VIP', 0)):,}")
-        sub_col2.metric("👑 Clientes VIP", f"{safe_int(metricas.get('Clientes VIP Base de Datos', 0)):,}")
+    with c_rs:
+        st.subheader("📱 Social Media")
+        st.metric("📸 Seguidores IG", f"{safe_int(metricas.get('Seguidores Instagram VIP', 0)):,}")
+        st.metric("👑 Clientes VIP", f"{safe_int(metricas.get('Clientes VIP Base de Datos', 0)):,}")
         
-    with col_email:
-        st.subheader("📧 Email Marketing")
-        sub_col3, sub_col4, sub_col5 = st.columns(3)
-        sub_col3.metric("Día", f"{safe_int(metricas.get('Correos Enviados (Día)', 0))}")
-        sub_col4.metric("Semana", f"{safe_int(metricas.get('Correos Enviados (Semana)', 0))}")
-        sub_col5.metric("Mes", f"{safe_int(metricas.get('Correos Enviados (Mes)', 0))}")
+    with c_em:
+        st.subheader("📧 Email Mkt")
+        cl1, cl2 = st.columns(2)
+        cl1.metric("Día", safe_int(metricas.get('Correos Enviados (Día)', 0)))
+        cl2.metric("Semana", safe_int(metricas.get('Correos Enviados (Semana)', 0)))
+        st.metric("Mensual", f"{safe_int(metricas.get('Correos Enviados (Mes)', 0)):,}")
+    
+    with c_wa:
+        st.subheader("🟢 WhatsApp")
+        cl3, cl4 = st.columns(2)
+        cl3.metric("Día", safe_int(metricas.get('Mensajes WA (Día)', 0)))
+        cl4.metric("Semana", safe_int(metricas.get('Mensajes WA (Semana)', 0)))
+        st.metric("Mensual", f"{safe_int(metricas.get('Mensajes WA (Mes)', 0)):,}")
     
     st.markdown("---")
-    st.subheader("🎯 Conversión y Resultados")
-    c1, c2, c3 = st.columns(3)
+    res1, res2 = st.columns(2)
     
-    # Cálculo de Conversión de Email si hay datos
-    enviados_mes = safe_float(metricas.get('Correos Enviados (Mes)', 1)) # Evitar div/0
-    citas_mes = safe_float(metricas.get('Citas Agendadas (Email)', 0))
-    tasa_real = (citas_mes / enviados_mes) * 100 if enviados_mes > 0 else 0
-    
-    c1.metric("📅 Citas Agendadas (Mes)", f"{safe_int(citas_mes)}")
-    c2.metric("📈 Tasa de Conversión", f"{tasa_real:.1f}%")
-    c3.metric("📊 Meta Mensual", "85%", "2.5%")
+    with res1:
+        st.subheader("🎯 Conversión por Email")
+        r_c1, r_c2 = st.columns(2)
+        env_em = safe_float(metricas.get('Correos Enviados (Mes)', 1))
+        cit_em = safe_float(metricas.get('Citas Agendadas (Email)', 0))
+        tax_em = (cit_em / env_em) * 100 if env_em > 0 else 0
+        r_c1.metric("📅 Citas", f"{safe_int(cit_em)}")
+        r_c2.metric("📈 Tasa", f"{tax_em:.1f}%")
+
+    with res2:
+        st.subheader("🎯 Conversión por WhatsApp")
+        r_c3, r_c4 = st.columns(2)
+        env_wa = safe_float(metricas.get('Mensajes WA (Mes)', 1))
+        cit_wa = safe_float(metricas.get('Citas Agendadas (WA)', 0))
+        tax_wa = (cit_wa / env_wa) * 100 if env_wa > 0 else 0
+        r_c3.metric("📅 Citas", f"{safe_int(cit_wa)}")
+        r_c4.metric("📈 Tasa", f"{tax_wa:.1f}%")
 
     st.markdown("---")
     st.subheader("🎯 Campañas de Marketing Activas")

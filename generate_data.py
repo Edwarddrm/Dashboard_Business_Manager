@@ -49,9 +49,13 @@ def generate_dummy_data(output_path):
             'Correos Enviados (Semana)', 
             'Correos Enviados (Mes)',
             'Citas Agendadas (Email)',
+            'Mensajes WA (Día)',
+            'Mensajes WA (Semana)',
+            'Mensajes WA (Mes)',
+            'Citas Agendadas (WA)',
             'Tasa de Conversión (%)'
         ],
-        'Valor': [45000, 1200, 45, 315, 1350, 28, 15.5]
+        'Valor': [45000, 1200, 45, 315, 1350, 28, 60, 420, 1800, 56, 15.5]
     })
     
     # 4. Campañas Vigentes (Enfocado en High-End)
