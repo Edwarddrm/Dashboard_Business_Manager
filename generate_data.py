@@ -42,8 +42,16 @@ def generate_dummy_data(output_path):
     
     # 3. Marketing General (Exclusividad)
     df_marketing = pd.DataFrame({
-        'Métrica': ['Seguidores Instagram VIP', 'Clientes VIP Base de Datos', 'Correos Personalizados Enviados', 'Tasa de Conversión (%)'],
-        'Valor': [45000, 1200, 800, 15.5]
+        'Métrica': [
+            'Seguidores Instagram VIP', 
+            'Clientes VIP Base de Datos', 
+            'Correos Enviados (Día)', 
+            'Correos Enviados (Semana)', 
+            'Correos Enviados (Mes)',
+            'Citas Agendadas (Email)',
+            'Tasa de Conversión (%)'
+        ],
+        'Valor': [45000, 1200, 45, 315, 1350, 28, 15.5]
     })
     
     # 4. Campañas Vigentes (Enfocado en High-End)
